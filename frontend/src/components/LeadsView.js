@@ -64,7 +64,7 @@ const LeadsView = ({ user, hasPermission, uploadFile, getFileUrl }) => {
   const loadLeads = async () => {
     try {
       setLoading(true);
-      const data = await LeadsService.getAll();
+      const data = await LeadsService.getLeads();
       setLeads(data);
     } catch (error) {
       console.error('Error loading leads:', error);
@@ -75,7 +75,7 @@ const LeadsView = ({ user, hasPermission, uploadFile, getFileUrl }) => {
 
   const loadInventory = async () => {
     try {
-      const data = await InventoryService.getAll();
+      const data = await InventoryService.getInventory();
       setInventory(data);
     } catch (error) {
       console.error("Error loading inventory:", error);
@@ -85,7 +85,7 @@ const LeadsView = ({ user, hasPermission, uploadFile, getFileUrl }) => {
   const handleSubmit = async (leadData) => {
     try {
       if (editingLead) {
-        await LeadsService.update(editingLead.id, leadData);
+        await LeadsService.updateLead(editingLead.id, leadData);
       } else {
         // Set initial status based on assignment
         const initialData = {
@@ -93,7 +93,7 @@ const LeadsView = ({ user, hasPermission, uploadFile, getFileUrl }) => {
           status: leadData.assigned_to ? 'assigned' : 'unassigned',
           created_by: user.name
         };
-        await LeadsService.create(initialData);
+        await LeadsService.createLead(initialData);
       }
       setShowForm(false);
       setEditingLead(null);
@@ -108,7 +108,7 @@ const LeadsView = ({ user, hasPermission, uploadFile, getFileUrl }) => {
     const assignedTo = prompt(`Assign lead to (${SALES_TEAM.join(', ')}):`);
     if (assignedTo && SALES_TEAM.includes(assignedTo)) {
       try {
-        await LeadsService.update(lead.id, {
+        await LeadsService.updateLead(lead.id, {
           ...lead,
           assigned_to: assignedTo,
           status: 'assigned',
@@ -138,7 +138,7 @@ const LeadsView = ({ user, hasPermission, uploadFile, getFileUrl }) => {
 
   const updateLeadStatus = async (lead, newStatus) => {
     try {
-      await LeadsService.update(lead.id, {
+      await LeadsService.updateLead(lead.id, {
         ...lead,
         status: newStatus,
         [`${newStatus}_date`]: new Date().toISOString()
@@ -158,7 +158,7 @@ const LeadsView = ({ user, hasPermission, uploadFile, getFileUrl }) => {
   const handlePaymentSubmit = async (paymentData) => {
     try {
       // Update lead status
-      await LeadsService.update(selectedLead.id, {
+      await LeadsService.updateLead(selectedLead.id, {
         ...selectedLead,
         status: 'payment_received',
         payment_date: new Date().toISOString(),

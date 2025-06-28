@@ -80,8 +80,8 @@ function App() {
   const loadDashboardData = async () => {
     try {
       const [leadsCount, ordersData] = await Promise.all([
-        LeadsService.getAll(),
-        OrdersService.getAll()
+        LeadsService.getLeads(),
+        OrdersService.getOrders()
       ]);
 
       const now = new Date();

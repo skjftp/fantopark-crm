@@ -3,7 +3,7 @@ import api from './api';
 const OrdersService = {
   getOrders: async () => {
     try {
-      const response = await api.get('/api/orders');
+      const response = await api.get('/orders');
       return response.data || response || [];
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -13,7 +13,7 @@ const OrdersService = {
 
   getOrderById: async (id) => {
     try {
-      const response = await api.get(`/api/orders/${id}`);
+      const response = await api.get(`/orders/${id}`);
       return response.data || response;
     } catch (error) {
       console.error('Error fetching order:', error);
@@ -23,7 +23,7 @@ const OrdersService = {
 
   createOrder: async (orderData) => {
     try {
-      const response = await api.post('/api/orders', orderData);
+      const response = await api.post('/orders', orderData);
       return response.data || response;
     } catch (error) {
       console.error('Error creating order:', error);
@@ -38,7 +38,7 @@ const OrdersService = {
 
   updateOrder: async (id, orderData) => {
     try {
-      const response = await api.put(`/api/orders/${id}`, orderData);
+      const response = await api.put(`/orders/${id}`, orderData);
       return response.data || response;
     } catch (error) {
       console.error('Error updating order:', error);
@@ -51,7 +51,7 @@ const OrdersService = {
 
   deleteOrder: async (id) => {
     try {
-      await api.delete(`/api/orders/${id}`);
+      await api.delete(`/orders/${id}`);
       return { success: true };
     } catch (error) {
       console.error('Error deleting order:', error);
@@ -61,7 +61,7 @@ const OrdersService = {
 
   updateOrderStatus: async (id, status) => {
     try {
-      const response = await api.put(`/api/orders/${id}/status`, { status });
+      const response = await api.put(`/orders/${id}/status`, { status });
       return response.data || response;
     } catch (error) {
       console.error('Error updating order status:', error);

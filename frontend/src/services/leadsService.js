@@ -32,7 +32,7 @@ const demoLeads = [
 const LeadsService = {
   getLeads: async () => {
     try {
-      const response = await api.get('/api/leads');
+      const response = await api.get('/leads');
       return response.data || response;
     } catch (error) {
       console.error('Error fetching leads, using demo data:', error);
@@ -42,7 +42,7 @@ const LeadsService = {
 
   getLeadById: async (id) => {
     try {
-      const response = await api.get(`/api/leads/${id}`);
+      const response = await api.get(`/leads/${id}`);
       return response.data || response;
     } catch (error) {
       console.error('Error fetching lead:', error);
@@ -52,7 +52,7 @@ const LeadsService = {
 
   createLead: async (leadData) => {
     try {
-      const response = await api.post('/api/leads', leadData);
+      const response = await api.post('/leads', leadData);
       return response.data || response;
     } catch (error) {
       console.error('Error creating lead, using local storage:', error);
@@ -73,7 +73,7 @@ const LeadsService = {
 
   updateLead: async (id, leadData) => {
     try {
-      const response = await api.put(`/api/leads/${id}`, leadData);
+      const response = await api.put(`/leads/${id}`, leadData);
       return response.data || response;
     } catch (error) {
       console.error('Error updating lead, using local storage:', error);
@@ -93,7 +93,7 @@ const LeadsService = {
 
   deleteLead: async (id) => {
     try {
-      await api.delete(`/api/leads/${id}`);
+      await api.delete(`/leads/${id}`);
       return { success: true };
     } catch (error) {
       console.error('Error deleting lead:', error);

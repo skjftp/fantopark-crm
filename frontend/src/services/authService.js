@@ -3,7 +3,7 @@ import api from './api';
 const AuthService = {
   login: async (email, password) => {
     try {
-      const response = await api.post('/api/auth/login', { email, password });
+      const response = await api.post('/auth/login', { email, password });
       
       if (response.token) {
         localStorage.setItem('crm_token', response.token);
@@ -46,7 +46,7 @@ const AuthService = {
 
   logout: async () => {
     try {
-      await api.post('/api/auth/logout', {});
+      await api.post('/auth/logout', {});
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -57,7 +57,7 @@ const AuthService = {
 
   verifyToken: async () => {
     try {
-      const response = await api.get('/api/auth/verify');
+      const response = await api.get('/auth/verify');
       return response.user;
     } catch (error) {
       console.error('Token verification error:', error);

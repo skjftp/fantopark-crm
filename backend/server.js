@@ -14,7 +14,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['https://crm-frontend-150582227311.us-central1.run.app', 'http://localhost:3000'],
+  origin: ['https://fantopark-crm-frontend-150582227311.us-central1.run.app/', 'http://localhost:3000'],
   credentials: true
 }));
 app.use(express.json());

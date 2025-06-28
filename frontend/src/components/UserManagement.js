@@ -23,7 +23,7 @@ const UserManagement = ({ onClose }) => {
     const loadUsers = async () => {
         try {
             setLoading(true);
-            const data = await UsersService.getAll();
+            const data = await UsersService.getUsers();
             setUsers(data);
         } catch (error) {
             console.error('Error loading users:', error);

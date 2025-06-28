@@ -1,55 +1,39 @@
-// Use the new CORS-enabled backend
-const API_BASE_URL = 'https://crm-backend-cors-150582227311.us-central1.run.app';
+import axios from 'axios';
 
-const getAuthToken = () => localStorage.getItem('crm_token');
-
-const apiRequest = async (endpoint, options = {}) => {
-  const token = getAuthToken();
-  
-  const defaultHeaders = {
+const api = axios.create({
+  baseURL: '/api',  // This will use the nginx proxy
+  headers: {
     'Content-Type': 'application/json',
-  };
-  
-  if (token) {
-    defaultHeaders['Authorization'] = `Bearer ${token}`;
-  }
-  
-  const config = {
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...options.headers,
-    },
-  };
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('crm_token');
-        localStorage.removeItem('crm_user');
-        window.location.href = '/';
-      }
-      throw new Error(`API Error: ${response.statusText}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('API Request Error:', error);
-    throw error;
-  }
-};
+  },
+  withCredentials: true
+});
 
-export default {
-  get: (endpoint) => apiRequest(endpoint, { method: 'GET' }),
-  post: (endpoint, data) => apiRequest(endpoint, { 
-    method: 'POST', 
-    body: JSON.stringify(data) 
-  }),
-  put: (endpoint, data) => apiRequest(endpoint, { 
-    method: 'PUT', 
-    body: JSON.stringify(data) 
-  }),
-  delete: (endpoint) => apiRequest(endpoint, { method: 'DELETE' }),
-};
+// Add auth token to requests if it exists
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('crm_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle responses
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    console.error('API Error:', error);
+    if (error.response?.status === 401) {
+      localStorage.removeItem('crm_token');
+      localStorage.removeItem('crm_user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;

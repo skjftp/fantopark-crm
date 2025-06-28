@@ -37,7 +37,7 @@ const demoInventory = [
 const InventoryService = {
   getInventory: async () => {
     try {
-      const response = await api.get('/api/inventory');
+      const response = await api.get('/inventory');
       return response.data || response || [];
     } catch (error) {
       console.error('Error fetching inventory, using demo data:', error);
@@ -47,7 +47,7 @@ const InventoryService = {
 
   getInventoryById: async (id) => {
     try {
-      const response = await api.get(`/api/inventory/${id}`);
+      const response = await api.get(`/inventory/${id}`);
       return response.data || response;
     } catch (error) {
       console.error('Error fetching inventory item:', error);
@@ -57,7 +57,7 @@ const InventoryService = {
 
   createInventoryItem: async (itemData) => {
     try {
-      const response = await api.post('/api/inventory', itemData);
+      const response = await api.post('/inventory', itemData);
       return response.data || response;
     } catch (error) {
       console.error('Error creating inventory item, using local fallback:', error);
@@ -72,7 +72,7 @@ const InventoryService = {
 
   updateInventoryItem: async (id, itemData) => {
     try {
-      const response = await api.put(`/api/inventory/${id}`, itemData);
+      const response = await api.put(`/inventory/${id}`, itemData);
       return response.data || response;
     } catch (error) {
       console.error('Error updating inventory item:', error);
@@ -86,7 +86,7 @@ const InventoryService = {
 
   deleteInventoryItem: async (id) => {
     try {
-      await api.delete(`/api/inventory/${id}`);
+      await api.delete(`/inventory/${id}`);
       return { success: true };
     } catch (error) {
       console.error('Error deleting inventory item:', error);
