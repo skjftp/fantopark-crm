@@ -1,131 +1,474 @@
 import React, { useState, useEffect } from 'react';
 import LeadsService from '../services/leadsService';
-import { LEAD_STATUSES, formatDate } from '../constants';
-import LoadingSpinner from './LoadingSpinner';
+import InventoryService from '../services/inventoryService';
+import OrdersService from '../services/ordersService';
+import LeadForm from './forms/LeadForm';
+import PaymentForm from './forms/PaymentForm';
+import { LEAD_STATUSES, SALES_TEAM, formatCurrency } from '../constants';
 
-const LeadsView = ({ user, hasPermission }) => {
+const LeadsView = ({ user, hasPermission, uploadFile, getFileUrl }) => {
   const [leads, setLeads] = useState([]);
+  const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showChoiceModal, setShowChoiceModal] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [currentLeadForChoice, setCurrentLeadForChoice] = useState(null);
+  const [choiceOptions, setChoiceOptions] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [currentLead, setCurrentLead] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    company: '',
-    lead_for_event: '',
-    number_of_people: '',
-    event_start_date: '',
-    event_end_date: '',
-    location_preference: '',
-    annual_income_bracket: '',
-    source: '',
-    first_touch_base_done_by: '',
-    date_of_enquiry: '',
-    status: 'new',
-    last_quoted_price: '',
-    quoted_date: '',
-    follow_up_date: '',
-    notes: ''
-  });
+  const [assignedFilter, setAssignedFilter] = useState('all');
 
   useEffect(() => {
     loadLeads();
-  }, []);
+    loadInventory();
+    
+    // Add keyboard shortcuts
+    const handleKeyPress = (e) => {
+      // Check if user is not typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      switch(e.key.toLowerCase()) {
+        case 'a':
+          if (hasPermission('leads', 'write')) {
+            setShowForm(true);
+          }
+          break;
+        case 's':
+          if (selectedLead && hasPermission('leads', 'assign')) {
+            handleAssignLead(selectedLead);
+          }
+          break;
+        case 'p':
+          if (selectedLead && selectedLead.status === 'converted') {
+            handlePaymentReceived(selectedLead);
+          }
+          break;
+        case 'n':
+          if (selectedLead) {
+            handleProgressLead(selectedLead);
+          }
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [selectedLead, hasPermission]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   const loadLeads = async () => {
     try {
       setLoading(true);
-      const data = await LeadsService.getLeads();
+      const data = await LeadsService.getAll();
       setLeads(data);
     } catch (error) {
-      console.error('Failed to load leads:', error);
+      console.error('Error loading leads:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      company: '',
-      lead_for_event: '',
-      number_of_people: '',
-      event_start_date: '',
-      event_end_date: '',
-      location_preference: '',
-      annual_income_bracket: '',
-      source: '',
-      first_touch_base_done_by: '',
-      date_of_enquiry: '',
-      status: 'new',
-      last_quoted_price: '',
-      quoted_date: '',
-      follow_up_date: '',
-      notes: ''
-    });
+  const loadInventory = async () => {
+    try {
+      const data = await InventoryService.getAll();
+      setInventory(data);
+    } catch (error) {
+      console.error("Error loading inventory:", error);
+    }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (leadData) => {
     try {
-      if (showEditForm && currentLead) {
-        // Update existing lead
-        const updated = await LeadsService.updateLead(currentLead.id, formData);
-        setLeads(prev => prev.map(lead => lead.id === currentLead.id ? updated : lead));
-        alert('Lead updated successfully!');
+      if (editingLead) {
+        await LeadsService.update(editingLead.id, leadData);
       } else {
-        // Create new lead
-        const newLead = await LeadsService.createLead({
-          ...formData,
-          created_date: new Date().toISOString().split('T')[0]
-        });
-        setLeads(prev => [...prev, newLead]);
-        alert('Lead added successfully!');
+        // Set initial status based on assignment
+        const initialData = {
+          ...leadData,
+          status: leadData.assigned_to ? 'assigned' : 'unassigned',
+          created_by: user.name
+        };
+        await LeadsService.create(initialData);
       }
-      setShowAddForm(false);
-      setShowEditForm(false);
-      setCurrentLead(null);
-      resetForm();
+      setShowForm(false);
+      setEditingLead(null);
+      loadLeads();
     } catch (error) {
+      console.error('Error saving lead:', error);
       alert('Failed to save lead');
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleAssignLead = async (lead) => {
+    const assignedTo = prompt(`Assign lead to (${SALES_TEAM.join(', ')}):`);
+    if (assignedTo && SALES_TEAM.includes(assignedTo)) {
+      try {
+        await LeadsService.update(lead.id, {
+          ...lead,
+          assigned_to: assignedTo,
+          status: 'assigned',
+          assigned_date: new Date().toISOString()
+        });
+        loadLeads();
+      } catch (error) {
+        console.error('Error assigning lead:', error);
+      }
+    }
   };
 
-  const openEditForm = (lead) => {
-    setCurrentLead(lead);
-    setFormData(lead);
-    setShowEditForm(true);
+  const handleProgressLead = (lead) => {
+    const currentStatus = LEAD_STATUSES[lead.status];
+    if (currentStatus && currentStatus.next.length > 0) {
+      if (currentStatus.next.length === 1) {
+        // Auto progress if only one option
+        updateLeadStatus(lead, currentStatus.next[0]);
+      } else {
+        // Show choice modal
+        setCurrentLeadForChoice(lead);
+        setChoiceOptions(currentStatus.next);
+        setShowChoiceModal(true);
+      }
+    }
+  };
+
+  const updateLeadStatus = async (lead, newStatus) => {
+    try {
+      await LeadsService.update(lead.id, {
+        ...lead,
+        status: newStatus,
+        [`${newStatus}_date`]: new Date().toISOString()
+      });
+      setShowChoiceModal(false);
+      loadLeads();
+    } catch (error) {
+      console.error('Error updating lead status:', error);
+    }
+  };
+
+  const handlePaymentReceived = (lead) => {
+    setSelectedLead(lead);
+    setShowPaymentForm(true);
+  };
+
+  const handlePaymentSubmit = async (paymentData) => {
+    try {
+      // Update lead status
+      await LeadsService.update(selectedLead.id, {
+        ...selectedLead,
+        status: 'payment_received',
+        payment_date: new Date().toISOString(),
+        payment_details: paymentData
+      });
+
+      // Create order for finance approval
+      const orderData = {
+        lead_id: selectedLead.id,
+        customer_name: selectedLead.name,
+        customer_email: selectedLead.email,
+        customer_phone: selectedLead.phone,
+        ...paymentData,
+        status: 'pending_approval',
+        created_by: user.name
+      };
+
+      await OrdersService.create(orderData);
+      
+      setShowPaymentForm(false);
+      setSelectedLead(null);
+      loadLeads();
+      alert('Payment recorded and order sent for approval!');
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      alert('Failed to record payment');
+    }
   };
 
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = 
-      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (lead.company || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         lead.phone.includes(searchTerm);
+    
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesAssigned = assignedFilter === 'all' || 
+                           (assignedFilter === 'unassigned' && !lead.assigned_to) ||
+                           lead.assigned_to === assignedFilter;
+    
+    return matchesSearch && matchesStatus && matchesAssigned;
   });
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  return (
+    <div>
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+          Leads Management
+        </h1>
+        <p style={{ color: '#6b7280' }}>
+          Manage your leads and track their progress through the sales pipeline
+        </p>
+      </div>
 
-  const renderForm = () => {
-    const isEdit = showEditForm && currentLead;
-    
-    return (
-      <div 
-        style={{
+      {/* Shortcuts Help */}
+      <div style={{
+        backgroundColor: '#e5e7eb',
+        padding: '0.75rem',
+        borderRadius: '0.375rem',
+        marginBottom: '1rem',
+        fontSize: '0.875rem'
+      }}>
+        <strong>Keyboard Shortcuts:</strong> 
+        <span style={{ marginLeft: '1rem' }}>A - Add Lead</span>
+        <span style={{ marginLeft: '1rem' }}>S - Assign Lead</span>
+        <span style={{ marginLeft: '1rem' }}>N - Next Status</span>
+        <span style={{ marginLeft: '1rem' }}>P - Payment</span>
+      </div>
+
+      {/* Filters */}
+      <div style={{
+        display: 'flex',
+        gap: '1rem',
+        marginBottom: '1.5rem',
+        flexWrap: 'wrap'
+      }}>
+        <input
+          type="text"
+          placeholder="Search leads..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            padding: '0.5rem',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.375rem',
+            flex: '1',
+            minWidth: '200px'
+          }}
+        />
+        
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{
+            padding: '0.5rem',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.375rem'
+          }}
+        >
+          <option value="all">All Status</option>
+          {Object.entries(LEAD_STATUSES).map(([key, status]) => (
+            <option key={key} value={key}>{status.label}</option>
+          ))}
+        </select>
+
+        <select
+          value={assignedFilter}
+          onChange={(e) => setAssignedFilter(e.target.value)}
+          style={{
+            padding: '0.5rem',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.375rem'
+          }}
+        >
+          <option value="all">All Assigned</option>
+          <option value="unassigned">Unassigned</option>
+          {SALES_TEAM.map(member => (
+            <option key={member} value={member}>{member}</option>
+          ))}
+        </select>
+
+        {hasPermission('leads', 'write') && (
+          <button
+            onClick={() => setShowForm(true)}
+            style={{
+              backgroundColor: '#2563eb',
+              color: 'white',
+              padding: '0.5rem 1rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            + Add Lead
+          </button>
+        )}
+      </div>
+
+      {/* Leads Table */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '0.5rem',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+        overflow: 'hidden'
+      }}>
+        {loading ? (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>Loading leads...</div>
+        ) : filteredLeads.length > 0 ? (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f3f4f6' }}>
+                <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.875rem' }}>Name</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.875rem' }}>Contact</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.875rem' }}>Source</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.875rem' }}>Status</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.875rem' }}>Assigned To</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.875rem' }}>Value</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.875rem' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLeads.map((lead, index) => (
+                <tr 
+                  key={lead.id}
+                  onClick={() => setSelectedLead(lead)}
+                  style={{
+                    borderTop: '1px solid #e5e7eb',
+                    cursor: 'pointer',
+                    backgroundColor: selectedLead?.id === lead.id ? '#eff6ff' : 'white'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 
+                    selectedLead?.id === lead.id ? '#eff6ff' : 'white'}
+                >
+                  <td style={{ padding: '0.75rem' }}>
+                    <div>
+                      <div style={{ fontWeight: '500' }}>{lead.name}</div>
+                      {lead.company && (
+                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{lead.company}</div>
+                      )}
+                    </div>
+                  </td>
+                  <td style={{ padding: '0.75rem' }}>
+                    <div style={{ fontSize: '0.875rem' }}>
+                      <div>{lead.email}</div>
+                      <div style={{ color: '#6b7280' }}>{lead.phone}</div>
+                    </div>
+                  </td>
+                  <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+                    {lead.source || '-'}
+                  </td>
+                  <td style={{ padding: '0.75rem' }}>
+                    <span style={{
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '9999px',
+                      fontSize: '0.75rem',
+                      fontWeight: '500',
+                      display: 'inline-block'
+                    }}
+                    className={LEAD_STATUSES[lead.status]?.color || 'bg-gray-100 text-gray-800'}>
+                      {LEAD_STATUSES[lead.status]?.label || lead.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+                    {lead.assigned_to || '-'}
+                  </td>
+                  <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+                    ₹{formatCurrency(lead.potential_value || 0)}
+                  </td>
+                  <td style={{ padding: '0.75rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {hasPermission('leads', 'progress') && 
+                       LEAD_STATUSES[lead.status]?.next?.length > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProgressLead(lead);
+                          }}
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: '#3b82f6',
+                            color: 'white',
+                            borderRadius: '0.25rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem'
+                          }}
+                          title="Progress to next status (N)"
+                        >
+                          →
+                        </button>
+                      )}
+                      
+                      {hasPermission('leads', 'assign') && !lead.assigned_to && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAssignLead(lead);
+                          }}
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: '#10b981',
+                            color: 'white',
+                            borderRadius: '0.25rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem'
+                          }}
+                          title="Assign lead (S)"
+                        >
+                          Assign
+                        </button>
+                      )}
+                      
+                      {lead.status === 'converted' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePaymentReceived(lead);
+                          }}
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: '#8b5cf6',
+                            color: 'white',
+                            borderRadius: '0.25rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem'
+                          }}
+                          title="Record payment (P)"
+                        >
+                          Payment
+                        </button>
+                      )}
+                      
+                      {hasPermission('leads', 'write') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingLead(lead);
+                            setShowForm(true);
+                          }}
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: '#6b7280',
+                            color: 'white',
+                            borderRadius: '0.25rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem'
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+            No leads found
+          </div>
+        )}
+      </div>
+
+      {/* Lead Form Modal */}
+      {showForm && (
+        <div style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -135,581 +478,135 @@ const LeadsView = ({ user, hasPermission }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 9999
-        }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowAddForm(false);
-            setShowEditForm(false);
-            setCurrentLead(null);
-            resetForm();
-          }
-        }}
-      >
-        <div 
-          style={{
-            backgroundColor: 'white',
-            padding: '2rem',
-            borderRadius: '0.5rem',
-            width: '90%',
-            maxWidth: '800px',
-            maxHeight: '90vh',
-            overflowY: 'auto'
-          }}
-        >
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>
-            {isEdit ? `Edit Lead: ${currentLead.name}` : 'Add New Lead'}
-          </h3>
-          
-          <form onSubmit={handleSubmit}>
-            {/* Basic Information Section */}
-            <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: '#4b5563' }}>
-              Basic Information
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Company
-                </label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) => handleInputChange('company', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Event Details Section */}
-            <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: '#4b5563' }}>
-              Event Details
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Event Interest
-                </label>
-                <input
-                  type="text"
-                  value={formData.lead_for_event}
-                  onChange={(e) => handleInputChange('lead_for_event', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                  placeholder="e.g., IPL Finals 2024"
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Number of People
-                </label>
-                <input
-                  type="number"
-                  value={formData.number_of_people}
-                  onChange={(e) => handleInputChange('number_of_people', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                  min="1"
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Event Start Date
-                </label>
-                <input
-                  type="date"
-                  value={formData.event_start_date}
-                  onChange={(e) => handleInputChange('event_start_date', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Event End Date
-                </label>
-                <input
-                  type="date"
-                  value={formData.event_end_date}
-                  onChange={(e) => handleInputChange('event_end_date', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                />
-              </div>
-
-              <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Location Preference
-                </label>
-                <input
-                  type="text"
-                  value={formData.location_preference}
-                  onChange={(e) => handleInputChange('location_preference', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Lead Source Section */}
-            <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: '#4b5563' }}>
-              Lead Information
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Annual Income Bracket
-                </label>
-                <select
-                  value={formData.annual_income_bracket}
-                  onChange={(e) => handleInputChange('annual_income_bracket', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                >
-                  <option value="">Select Income Bracket</option>
-                  <option value="< 10 Lakhs">Less than 10 Lakhs</option>
-                  <option value="10-25 Lakhs">10-25 Lakhs</option>
-                  <option value="25-50 Lakhs">25-50 Lakhs</option>
-                  <option value="50 Lakhs - 1 Cr">50 Lakhs - 1 Cr</option>
-                  <option value="> 1 Cr">More than 1 Cr</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Lead Source
-                </label>
-                <select
-                  value={formData.source}
-                  onChange={(e) => handleInputChange('source', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                >
-                  <option value="">Select Source</option>
-                  <option value="Website">Website</option>
-                  <option value="Referral">Referral</option>
-                  <option value="Social Media">Social Media</option>
-                  <option value="Email Campaign">Email Campaign</option>
-                  <option value="Phone">Phone</option>
-                  <option value="Walk-in">Walk-in</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  First Touch Base Done By
-                </label>
-                <input
-                  type="text"
-                  value={formData.first_touch_base_done_by}
-                  onChange={(e) => handleInputChange('first_touch_base_done_by', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Date of Enquiry
-                </label>
-                <input
-                  type="date"
-                  value={formData.date_of_enquiry}
-                  onChange={(e) => handleInputChange('date_of_enquiry', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem'
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Status and Follow-up Section (only for edit) */}
-            {isEdit && (
-              <>
-                <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: '#4b5563' }}>
-                  Status & Follow-up
-                </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                      Status
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => handleInputChange('status', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '0.375rem'
-                      }}
-                    >
-                      {Object.entries(LEAD_STATUSES).map(([key, status]) => (
-                        <option key={key} value={key}>{status.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                      Last Quoted Price
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.last_quoted_price}
-                      onChange={(e) => handleInputChange('last_quoted_price', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '0.375rem'
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                      Quoted Date
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.quoted_date}
-                      onChange={(e) => handleInputChange('quoted_date', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '0.375rem'
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                      Follow-up Date
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.follow_up_date}
-                      onChange={(e) => handleInputChange('follow_up_date', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '0.375rem'
-                      }}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Notes Section */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                Notes
-              </label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '0.375rem',
-                  minHeight: '80px'
-                }}
-                rows={3}
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddForm(false);
-                  setShowEditForm(false);
-                  setCurrentLead(null);
-                  resetForm();
-                }}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '0.375rem',
-                  backgroundColor: 'white',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#2563eb',
-                  color: 'white',
-                  borderRadius: '0.375rem',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                {isEdit ? 'Update Lead' : 'Add Lead'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div>
-      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>Leads Management</h2>
-        {hasPermission('leads', 'write') && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            style={{
-              backgroundColor: '#2563eb',
-              color: 'white',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            + Add New Lead
-          </button>
-        )}
-      </div>
-
-      {/* Form Modal */}
-      {(showAddForm || showEditForm) && renderForm()}
-
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '0.5rem',
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
-      }}>
-        <div style={{
-          padding: '1rem',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          gap: '1rem'
+          zIndex: 50
         }}>
-          <input
-            type="text"
-            placeholder="Search leads..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              flex: 1,
-              padding: '0.5rem 1rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '0.5rem',
-              fontSize: '1rem'
-            }}
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: '0.5rem 1rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '0.5rem',
-              fontSize: '1rem'
-            }}
-          >
-            <option value="all">All Status</option>
-            {Object.entries(LEAD_STATUSES).map(([key, status]) => (
-              <option key={key} value={key}>{status.label}</option>
-            ))}
-          </select>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '0.5rem',
+            padding: '1.5rem',
+            width: '90%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <LeadForm
+              lead={editingLead}
+              onSubmit={handleSubmit}
+              onCancel={() => {
+                setShowForm(false);
+                setEditingLead(null);
+              }}
+              salesTeam={SALES_TEAM}
+              inventory={inventory}
+            />
+          </div>
         </div>
+      )}
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ backgroundColor: '#f9fafb' }}>
-              <tr>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Name</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Contact</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Event Interest</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Status</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Assigned To</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Date</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLeads.length === 0 ? (
-                <tr>
-                  <td colSpan="7" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                    No leads found. Click "+ Add New Lead" to create one.
-                  </td>
-                </tr>
-              ) : (
-                filteredLeads.map((lead) => (
-                  <tr key={lead.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '1rem' }}>
-                      <div>
-                        <div style={{ fontWeight: '500', color: '#111827' }}>{lead.name}</div>
-                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{lead.company}</div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ fontSize: '0.875rem' }}>
-                        <div>{lead.email}</div>
-                        <div style={{ color: '#6b7280' }}>{lead.phone}</div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '0.875rem' }}>
-                      {lead.lead_for_event || '-'}
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{
-                        padding: '0.25rem 0.5rem',
-                        fontSize: '0.75rem',
-                        borderRadius: '9999px',
-                        backgroundColor: lead.status === 'new' ? '#dbeafe' :
-                                        lead.status === 'contacted' ? '#fef3c7' :
-                                        lead.status === 'qualified' ? '#e9d5ff' :
-                                        lead.status === 'converted' ? '#d1fae5' : '#f3f4f6',
-                        color: lead.status === 'new' ? '#1e40af' :
-                               lead.status === 'contacted' ? '#92400e' :
-                               lead.status === 'qualified' ? '#6b21a8' :
-                               lead.status === 'converted' ? '#065f46' : '#374151'
-                      }}>
-                        {LEAD_STATUSES[lead.status]?.label || lead.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '0.875rem' }}>
-                      {lead.assigned_to || '-'}
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
-                      {formatDate(lead.created_date)}
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          title="View Details"
-                          style={{ color: '#2563eb', cursor: 'pointer', border: 'none', background: 'none', fontSize: '1.2rem' }}
-                        >
-                          👁️
-                        </button>
-                        {hasPermission('leads', 'write') && (
-                          <button
-                            onClick={() => openEditForm(lead)}
-                            title="Edit"
-                            style={{ color: '#10b981', cursor: 'pointer', border: 'none', background: 'none', fontSize: '1.2rem' }}
-                          >
-                            ✏️
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* Choice Modal */}
+      {showChoiceModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '0.5rem',
+            padding: '1.5rem',
+            width: '90%',
+            maxWidth: '400px'
+          }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+              Select Next Status
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {choiceOptions.map(option => (
+                <button
+                  key={option}
+                  onClick={() => updateLeadStatus(currentLeadForChoice, option)}
+                  style={{
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  <span className={LEAD_STATUSES[option]?.color} style={{
+                    padding: '0.25rem 0.75rem',
+                    borderRadius: '9999px',
+                    fontSize: '0.875rem',
+                    fontWeight: '500'
+                  }}>
+                    {LEAD_STATUSES[option]?.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowChoiceModal(false)}
+              style={{
+                marginTop: '1rem',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#6b7280',
+                color: 'white',
+                borderRadius: '0.375rem',
+                border: 'none',
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Payment Form Modal */}
+      {showPaymentForm && selectedLead && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '0.5rem',
+            padding: '1.5rem',
+            width: '90%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <PaymentForm
+              lead={selectedLead}
+              onSubmit={handlePaymentSubmit}
+              onCancel={() => {
+                setShowPaymentForm(false);
+                setSelectedLead(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

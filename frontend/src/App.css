@@ -1,0 +1,179 @@
+/* Enhanced GST Invoice Styles */
+.invoice-preview {
+    background: white;
+    border: 2px solid #000;
+    font-family: Arial, sans-serif;
+    font-size: 10px;
+    line-height: 1.2;
+    margin: 0 auto;
+    max-width: 210mm;
+    padding: 8mm;
+    box-sizing: border-box;
+}
+
+.invoice-header-row {
+    display: grid;
+    grid-template-columns: 300px 1fr auto;
+    padding: 10px 8px;
+    border-bottom: 2px solid #000;
+    align-items: center;
+    margin-bottom: 10px;
+    background: #f8f9fa;
+}
+
+.company-logo {
+    width: 210px;
+    height: 150px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.invoice-title {
+    text-align: right;
+    font-size: 16px;
+    font-weight: bold;
+    padding-top: 10px;
+    color: #2c3e50;
+}
+
+.invoice-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 8px;
+    border-bottom: 1px solid #000;
+    font-size: 10px;
+    margin-bottom: 10px;
+    background: #f8f9fa;
+}
+
+.customer-section {
+    padding: 10px 8px;
+    border-bottom: 1px solid #000;
+    margin-bottom: 12px;
+    background: #f8f9fa;
+}
+
+.customer-title {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 10px;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    margin-bottom: 12px;
+}
+
+.items-table th {
+    background: #2c3e50;
+    color: white;
+    padding: 6px 4px;
+    text-align: left;
+    border: 1px solid #000;
+    font-weight: bold;
+    font-size: 10px;
+}
+
+.items-table td {
+    padding: 6px 4px;
+    border: 1px solid #000;
+    text-align: left;
+    background: white;
+}
+
+.totals-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    margin-bottom: 12px;
+}
+
+.totals-table td {
+    padding: 4px;
+    border: 1px solid #000;
+}
+
+.bank-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border: 1px solid #000;
+    font-size: 9px;
+}
+
+.signature-section {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.signature-box {
+    text-align: center;
+    min-width: 150px;
+}
+
+.signature-line {
+    border-top: 1px solid #000;
+    margin-top: 50px;
+    padding-top: 5px;
+}
+
+.terms-section {
+    margin-top: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border: 1px solid #000;
+    font-size: 8px;
+}
+
+.footer-section {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 2px solid #000;
+    font-size: 8px;
+}
+
+/* Print Styles */
+@media print {
+    .invoice-preview {
+        margin: 0;
+        border: none;
+        box-shadow: none;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+}
+
+/* Additional styles for missing features */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    max-width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}

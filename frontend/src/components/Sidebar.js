@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Sidebar = ({ user, activeTab, setActiveTab, canAccessTab, onLogout }) => {
+const Sidebar = ({ user, activeTab, setActiveTab, canAccessTab, onLogout, hasPermission }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'leads', label: 'Leads', icon: '👥' },
@@ -8,6 +8,7 @@ const Sidebar = ({ user, activeTab, setActiveTab, canAccessTab, onLogout }) => {
     { id: 'orders', label: 'Orders', icon: '📋' },
     { id: 'delivery', label: 'Delivery', icon: '🚚' },
     { id: 'finance', label: 'Finance', icon: '💰' },
+    { id: 'users', label: 'User Management', icon: '👤' },
   ];
 
   const handleMenuClick = (tabId) => {
@@ -108,6 +109,7 @@ const Sidebar = ({ user, activeTab, setActiveTab, canAccessTab, onLogout }) => {
         <div style={{ marginBottom: '1rem' }}>
           <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Signed in as</p>
           <p style={{ fontWeight: '500' }}>{user?.name || 'User'}</p>
+          <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>{user?.role || 'Role'}</p>
         </div>
         <button
           onClick={onLogout}

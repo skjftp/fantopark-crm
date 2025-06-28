@@ -1,320 +1,604 @@
-import React, { useState } from 'react';
-import { LEAD_STATUSES } from '../../constants';
+import React, { useState, useEffect } from 'react';
+import { SALES_TEAM } from '../../constants';
 
-const LeadForm = ({ lead, onSubmit, onCancel }) => {
-  const [formData, setFormData] = useState(lead || {
+const LeadForm = ({ lead, onSubmit, onCancel, inventory }) => {
+  const [formData, setFormData] = useState({
+    // Basic Contact Information
     name: '',
     email: '',
     phone: '',
     company: '',
-    lead_for_event: '',
-    number_of_people: '',
-    event_start_date: '',
-    event_end_date: '',
-    location_preference: '',
-    annual_income_bracket: '',
+    
+    // Lead Source & Initial Contact
     source: '',
-    status: 'new',
+    date_of_enquiry: new Date().toISOString().split('T')[0],
+    first_touch_base_done_by: '',
+    
+    // Location Information
+    city_of_residence: '',
+    country_of_residence: 'India',
+    
+    // Event & Travel Details
+    lead_for_event: '',
+    number_of_people: 1,
+    
+    // Travel Documentation
+    has_valid_passport: '',
+    visa_available: '',
+    
+    // Experience & Background
+    attended_sporting_event_before: '',
+    
+    // Financial Information
+    annual_income_bracket: '',
+    
+    // Sales Management
+    assigned_to: '',
+    potential_value: '',
+    follow_up_date: '',
     notes: ''
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const handleInputChange = (key, value) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
-  };
+  const leadSources = [
+    'Facebook', 'Instagram', 'LinkedIn', 'Friends and Family', 'Through Champion',
+    'Website', 'Existing Client', 'Contacted on Social Media', 'Middlemen',
+    'Wealth Management Firm', 'Media Agency', 'Concierge Desk',
+    'Travel Partner', 'Travel OTA'
+  ];
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const countries = [
+    'India', 'United States', 'United Kingdom', 'Australia', 'Canada', 'Singapore',
+    'UAE', 'Saudi Arabia', 'Germany', 'France', 'Italy', 'Spain', 'Netherlands',
+    'Switzerland', 'Japan', 'South Korea', 'Other'
+  ];
 
-    try {
-      await onSubmit(formData);
-    } catch (err) {
-      setError(err.message || 'Failed to save lead');
-      setLoading(false);
+  const incomeBrackets = [
+    'Less than 10 Lakhs',
+    '10-25 Lakhs',
+    '25-50 Lakhs',
+    '50 Lakhs - 1 Crore',
+    '1-5 Crores',
+    '5-10 Crores',
+    'Above 10 Crores'
+  ];
+
+  useEffect(() => {
+    if (lead) {
+      setFormData({
+        name: lead.name || '',
+        email: lead.email || '',
+        phone: lead.phone || '',
+        company: lead.company || '',
+        source: lead.source || '',
+        date_of_enquiry: lead.date_of_enquiry || new Date().toISOString().split('T')[0],
+        first_touch_base_done_by: lead.first_touch_base_done_by || '',
+        city_of_residence: lead.city_of_residence || '',
+        country_of_residence: lead.country_of_residence || 'India',
+        lead_for_event: lead.lead_for_event || '',
+        number_of_people: lead.number_of_people || 1,
+        has_valid_passport: lead.has_valid_passport || '',
+        visa_available: lead.visa_available || '',
+        attended_sporting_event_before: lead.attended_sporting_event_before || '',
+        annual_income_bracket: lead.annual_income_bracket || '',
+        assigned_to: lead.assigned_to || '',
+        potential_value: lead.potential_value || '',
+        follow_up_date: lead.follow_up_date || '',
+        notes: lead.notes || ''
+      });
     }
+  }, [lead]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const modalStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 50
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
   };
 
-  const formStyle = {
-    backgroundColor: 'white',
-    borderRadius: '0.5rem',
-    width: '100%',
-    maxWidth: '56rem',
-    maxHeight: '90vh',
-    overflowY: 'auto'
+  const sectionStyle = {
+    marginBottom: '2rem',
+    borderBottom: '1px solid #e5e7eb',
+    paddingBottom: '1.5rem'
   };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '0.5rem 0.75rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '0.375rem',
-    fontSize: '1rem'
-  };
-
-  const labelStyle = {
-    display: 'block',
-    fontSize: '0.875rem',
-    fontWeight: '500',
+  const sectionTitleStyle = {
+    fontSize: '1.125rem',
+    fontWeight: '600',
     color: '#374151',
-    marginBottom: '0.25rem'
+    marginBottom: '1rem'
   };
 
   return (
-    <div style={modalStyle} onClick={(e) => e.target === e.currentTarget && onCancel()}>
-      <div style={formStyle}>
-        <div style={{
-          position: 'sticky',
-          top: 0,
-          backgroundColor: 'white',
-          borderBottom: '1px solid #e5e7eb',
-          padding: '1.5rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>
-            {lead ? `Edit Lead: ${lead.name}` : 'Add New Lead'}
-          </h2>
-          <button
-            onClick={onCancel}
-            style={{
-              color: '#6b7280',
-              fontSize: '1.5rem',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            ×
-          </button>
-        </div>
+    <form onSubmit={handleSubmit} style={{ maxHeight: '80vh', overflowY: 'auto', padding: '0.5rem' }}>
+      <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>
+        {lead ? 'Edit Lead' : 'Add New Lead'}
+      </h2>
 
-        <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
-          {error && (
-            <div style={{
-              backgroundColor: '#fee2e2',
-              color: '#dc2626',
-              padding: '0.75rem',
-              borderRadius: '0.375rem',
-              marginBottom: '1rem'
-            }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '1rem'
-          }}>
-            <div>
-              <label style={labelStyle}>Name *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                style={inputStyle}
-                required
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Email *</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                style={inputStyle}
-                required
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Phone</label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Company</label>
-              <input
-                type="text"
-                value={formData.company}
-                onChange={(e) => handleInputChange('company', e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Event Interest</label>
-              <input
-                type="text"
-                value={formData.lead_for_event}
-                onChange={(e) => handleInputChange('lead_for_event', e.target.value)}
-                style={inputStyle}
-                placeholder="e.g., IPL Finals 2024"
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Number of People</label>
-              <input
-                type="number"
-                value={formData.number_of_people}
-                onChange={(e) => handleInputChange('number_of_people', e.target.value)}
-                style={inputStyle}
-                min="1"
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Event Start Date</label>
-              <input
-                type="date"
-                value={formData.event_start_date}
-                onChange={(e) => handleInputChange('event_start_date', e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Event End Date</label>
-              <input
-                type="date"
-                value={formData.event_end_date}
-                onChange={(e) => handleInputChange('event_end_date', e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Location Preference</label>
-              <input
-                type="text"
-                value={formData.location_preference}
-                onChange={(e) => handleInputChange('location_preference', e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Annual Income Bracket</label>
-              <select
-                value={formData.annual_income_bracket}
-                onChange={(e) => handleInputChange('annual_income_bracket', e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Select Income Bracket</option>
-                <option value="< 10 Lakhs">Less than 10 Lakhs</option>
-                <option value="10-25 Lakhs">10-25 Lakhs</option>
-                <option value="25-50 Lakhs">25-50 Lakhs</option>
-                <option value="50 Lakhs - 1 Cr">50 Lakhs - 1 Cr</option>
-                <option value="> 1 Cr">More than 1 Cr</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={labelStyle}>Lead Source</label>
-              <select
-                value={formData.source}
-                onChange={(e) => handleInputChange('source', e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Select Source</option>
-                <option value="Website">Website</option>
-                <option value="Referral">Referral</option>
-                <option value="Social Media">Social Media</option>
-                <option value="Email Campaign">Email Campaign</option>
-                <option value="Phone">Phone</option>
-                <option value="Walk-in">Walk-in</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            {lead && (
-              <div>
-                <label style={labelStyle}>Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => handleInputChange('status', e.target.value)}
-                  style={inputStyle}
-                >
-                  {Object.entries(LEAD_STATUSES).map(([key, status]) => (
-                    <option key={key} value={key}>{status.label}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={labelStyle}>Notes</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                style={{ ...inputStyle, minHeight: '100px' }}
-                rows={3}
-              />
-            </div>
+      {/* Basic Contact Information */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Basic Contact Information</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Contact Name*
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
           </div>
 
-          <div style={{
-            marginTop: '1.5rem',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '0.75rem'
-          }}>
-            <button
-              type="button"
-              onClick={onCancel}
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Email*
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
               style={{
-                padding: '0.5rem 1rem',
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Phone*
+            </label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              required
+              pattern="[0-9]{10}"
+              placeholder="10 digit mobile number"
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Company
+            </label>
+            <input
+              type="text"
+              name="company"
+              value={formData.company}
+              onChange={handleChange}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Lead Source & Initial Contact */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Lead Source & Initial Contact</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Source of Lead*
+            </label>
+            <select
+              name="source"
+              value={formData.source}
+              onChange={handleChange}
+              required
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            >
+              <option value="">Select Source</option>
+              {leadSources.map(source => (
+                <option key={source} value={source}>{source}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Date of Enquiry*
+            </label>
+            <input
+              type="date"
+              name="date_of_enquiry"
+              value={formData.date_of_enquiry}
+              onChange={handleChange}
+              required
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+
+          <div style={{ gridColumn: 'span 2' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              First Touch Base Done By*
+            </label>
+            <input
+              type="text"
+              name="first_touch_base_done_by"
+              value={formData.first_touch_base_done_by}
+              onChange={handleChange}
+              required
+              placeholder="Name of the person who first contacted"
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Location Information */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Location Information</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              City of Residence*
+            </label>
+            <input
+              type="text"
+              name="city_of_residence"
+              value={formData.city_of_residence}
+              onChange={handleChange}
+              required
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Country of Residence*
+            </label>
+            <select
+              name="country_of_residence"
+              value={formData.country_of_residence}
+              onChange={handleChange}
+              required
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            >
+              {countries.map(country => (
+                <option key={country} value={country}>{country}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Event & Travel Details */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Event & Travel Details</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Lead for Event*
+            </label>
+            <select
+              name="lead_for_event"
+              value={formData.lead_for_event}
+              onChange={handleChange}
+              required
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            >
+              <option value="">Select Event</option>
+              {inventory && inventory.map(item => (
+                <option key={item.id} value={item.id}>
+                  {item.event_name} - {item.venue} ({new Date(item.event_date).toLocaleDateString()})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Number of People Going*
+            </label>
+            <input
+              type="number"
+              name="number_of_people"
+              value={formData.number_of_people}
+              onChange={handleChange}
+              min="1"
+              required
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Travel Documentation */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Travel Documentation</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Has Valid Passport
+            </label>
+            <select
+              name="has_valid_passport"
+              value={formData.has_valid_passport}
+              onChange={handleChange}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            >
+              <option value="">Select</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+              <option value="Not Sure">Not Sure</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Visa Available
+            </label>
+            <select
+              name="visa_available"
+              value={formData.visa_available}
+              onChange={handleChange}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            >
+              <option value="">Select</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+              <option value="Not Required">Not Required</option>
+              <option value="In Process">In Process</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Experience & Background */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Experience & Background</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Attended Sporting Event Before*
+            </label>
+            <select
+              name="attended_sporting_event_before"
+              value={formData.attended_sporting_event_before}
+              onChange={handleChange}
+              required
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            >
+              <option value="">Select</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Annual Income Bracket
+            </label>
+            <select
+              name="annual_income_bracket"
+              value={formData.annual_income_bracket}
+              onChange={handleChange}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            >
+              <option value="">Select Income Bracket</option>
+              {incomeBrackets.map(bracket => (
+                <option key={bracket} value={bracket}>{bracket}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Sales Management */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Sales Management</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Assign To
+            </label>
+            <select
+              name="assigned_to"
+              value={formData.assigned_to}
+              onChange={handleChange}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
                 border: '1px solid #d1d5db',
                 borderRadius: '0.375rem',
-                backgroundColor: 'white',
-                color: '#374151',
-                cursor: 'pointer'
+                backgroundColor: formData.assigned_to ? '#eff6ff' : 'white'
               }}
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: loading ? '#9ca3af' : '#2563eb',
-                color: 'white',
-                borderRadius: '0.375rem',
-                border: 'none',
-                cursor: loading ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {loading ? 'Saving...' : (lead ? 'Update Lead' : 'Add Lead')}
-            </button>
+              <option value="">-- Unassigned --</option>
+              {SALES_TEAM.map(member => (
+                <option key={member} value={member}>{member}</option>
+              ))}
+            </select>
+            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+              Lead will be marked as 'Assigned' if a sales person is selected
+            </p>
           </div>
-        </form>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Potential Value
+            </label>
+            <input
+              type="number"
+              name="potential_value"
+              value={formData.potential_value}
+              onChange={handleChange}
+              min="0"
+              step="1000"
+              placeholder="Expected deal value"
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Follow-up Date
+            </label>
+            <input
+              type="date"
+              name="follow_up_date"
+              value={formData.follow_up_date}
+              onChange={handleChange}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+
+          <div style={{ gridColumn: 'span 2' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
+              Notes
+            </label>
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              rows="3"
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem'
+              }}
+            />
+          </div>
+        </div>
       </div>
-    </div>
+
+      <div style={{ 
+        display: 'flex', 
+        gap: '0.5rem', 
+        justifyContent: 'flex-end',
+        marginTop: '1.5rem',
+        borderTop: '1px solid #e5e7eb',
+        paddingTop: '1rem',
+        backgroundColor: 'white',
+        position: 'sticky',
+        bottom: 0
+      }}>
+        <button
+          type="button"
+          onClick={onCancel}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#6b7280',
+            color: 'white',
+            borderRadius: '0.375rem',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#2563eb',
+            color: 'white',
+            borderRadius: '0.375rem',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          {lead ? 'Update Lead' : 'Add Lead'}
+        </button>
+      </div>
+    </form>
   );
 };
 
